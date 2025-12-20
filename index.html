@@ -644,6 +644,19 @@
       color: #0f172a;
     }
 
+    /* ===== Selection checkbox UI ===== */
+    .select-col {
+      width: 40px;
+      text-align: center;
+    }
+
+    .row-select {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #2563eb;
+    }
+
     @media (max-width: 900px) {
       body {
         padding: 16px 10px;
@@ -844,6 +857,12 @@
           <span>Save table</span>
         </button>
 
+        <!-- ✅ Bulk delete: يظهر فقط في edit mode -->
+        <button id="btnBulkDelete" class="btn small danger" type="button" disabled>
+          <span class="btn-icon">🗑</span>
+          <span id="bulkDeleteText">Delete company</span>
+        </button>
+
         <button id="btnAddRow" class="btn small secondary">
           <span class="btn-icon">＋</span>
           <span>اضافة شركه جديده</span>
@@ -983,6 +1002,10 @@
     const rowCountEl = document.getElementById("rowCount");
     const btnIntegrationPortal = document.getElementById("btnIntegrationPortal");
 
+    // Bulk delete
+    const btnBulkDelete = document.getElementById("btnBulkDelete");
+    const bulkDeleteText = document.getElementById("bulkDeleteText");
+
     // Loading overlay
     const loadingOverlay = document.getElementById("loadingOverlay");
     const loadingTextEl = loadingOverlay.querySelector(".loading-text");
@@ -1051,10 +1074,23 @@
 
     let alarms = [];
 
+    // ✅ bulk selection + pending deletions (defer backend delete until Save table)
+    const selectedRowIds = new Set();         // row._rowId
+    const pendingDeletePks = new Set();       // Registration Number
+
     // typing guards
     let isTypingInCell = false;
-    let _typingTimer = null;
-    let _blurRenderTimer = null;
+
+    // debounce (recompute alarms only, NO rerender)
+    let _recomputeAlarmsTimer = null;
+    function scheduleRecomputeAlarms() {
+      clearTimeout(_recomputeAlarmsTimer);
+      _recomputeAlarmsTimer = setTimeout(() => {
+        // مهم: ده مش بيعمل rerender، بس بيحدث badge + alarm list
+        applyAlarmRanksToRows();
+        buildAlarms();
+      }, 450);
+    }
 
     function generateRowId() {
       rowIdCounter += 1;
@@ -1074,8 +1110,9 @@
 
     function setLoading(isLoading, text = "Working...") {
       btnReload.disabled = isLoading;
-      btnUpload.disabled = isLoading || !hasDataInGrid || !editMode;
+      btnUpload.disabled = isLoading || (!hasDataInGrid && pendingDeletePks.size === 0) || !editMode;
       btnIntegrationPortal.disabled = isLoading;
+      btnBulkDelete.disabled = isLoading || selectedRowIds.size === 0;
       if (isLoading) {
         showOverlay(text);
         setStatus(text, "");
@@ -1817,12 +1854,65 @@
       currentColumns = ordered;
     }
 
+    function updateBulkDeleteButtonState() {
+      const n = selectedRowIds.size;
+      bulkDeleteText.textContent = n > 0 ? `Delete company (${n})` : "Delete company";
+      btnBulkDelete.disabled = !editMode || n === 0;
+      btnUpload.disabled = (!editMode) || (!hasDataInGrid && pendingDeletePks.size === 0);
+    }
+
+    function updateSelectAllState() {
+      const headerChk = document.getElementById("selectAllChk");
+      if (!headerChk) return;
+
+      const rendered = [...tableBody.querySelectorAll("tr[data-row-id]")].map(tr => tr.dataset.rowId).filter(Boolean);
+      if (!rendered.length) {
+        headerChk.checked = false;
+        headerChk.indeterminate = false;
+        return;
+      }
+
+      const selectedCount = rendered.filter(id => selectedRowIds.has(id)).length;
+      headerChk.checked = selectedCount === rendered.length;
+      headerChk.indeterminate = selectedCount > 0 && selectedCount < rendered.length;
+    }
+
     function renderHeader() {
       tableHeaderRow.innerHTML = "";
 
       const thIdx = document.createElement("th");
       thIdx.textContent = IDX_COL_NAME;
       tableHeaderRow.appendChild(thIdx);
+
+      // ✅ selection column only in edit mode
+      if (editMode) {
+        const thSel = document.createElement("th");
+        thSel.className = "select-col";
+        thSel.innerHTML = `<input id="selectAllChk" class="row-select" type="checkbox" title="Select all" />`;
+        tableHeaderRow.appendChild(thSel);
+
+        // listener
+        setTimeout(() => {
+          const chk = document.getElementById("selectAllChk");
+          if (!chk) return;
+          chk.addEventListener("change", () => {
+            const rendered = [...tableBody.querySelectorAll("tr[data-row-id]")].map(tr => tr.dataset.rowId).filter(Boolean);
+            if (chk.checked) {
+              rendered.forEach(id => selectedRowIds.add(id));
+            } else {
+              rendered.forEach(id => selectedRowIds.delete(id));
+            }
+            // sync visible checkboxes
+            rendered.forEach(id => {
+              const c = tableBody.querySelector(`tr[data-row-id="${id}"] input.row-select`);
+              if (c) c.checked = selectedRowIds.has(id);
+            });
+            updateSelectAllState();
+            updateBulkDeleteButtonState();
+          });
+          updateSelectAllState();
+        }, 0);
+      }
 
       currentColumns.forEach((col) => {
         const th = document.createElement("th");
@@ -1923,8 +2013,9 @@
       });
       sel.value = options.includes(value) ? value : (value ? value : "");
       sel.addEventListener("change", () => {
-        markDirty(row, col); // ✅ مهم
+        markDirty(row, col);
         onChange(sel.value);
+        scheduleRecomputeAlarms(); // ✅ بدون rerender
       });
       return sel;
     }
@@ -1942,6 +2033,25 @@
         const tdIdx = document.createElement("td");
         tdIdx.textContent = (row._idx != null && row._idx !== "") ? String(row._idx) : "";
         tr.appendChild(tdIdx);
+
+        // ✅ selection checkbox only in edit mode
+        if (editMode) {
+          const tdSel = document.createElement("td");
+          tdSel.className = "select-col";
+          const chk = document.createElement("input");
+          chk.type = "checkbox";
+          chk.className = "row-select";
+          chk.checked = selectedRowIds.has(row._rowId);
+          chk.addEventListener("click", (e) => e.stopPropagation());
+          chk.addEventListener("change", () => {
+            if (chk.checked) selectedRowIds.add(row._rowId);
+            else selectedRowIds.delete(row._rowId);
+            updateSelectAllState();
+            updateBulkDeleteButtonState();
+          });
+          tdSel.appendChild(chk);
+          tr.appendChild(tdSel);
+        }
 
         currentColumns.forEach((col, index) => {
           const td = document.createElement("td");
@@ -1985,13 +2095,7 @@
               options,
               onChange: (val) => {
                 row[col] = val;
-                clearTimeout(_typingTimer);
-                _typingTimer = setTimeout(() => {
-                  applyAlarmRanksToRows();
-                  sortByCompletenessAndReindex();
-                  buildAlarms();
-                  applyFilter();
-                }, 50);
+                // ✅ لا نعمل render أثناء edit (عشان الفوكس ما يطيرش)
               }
             });
 
@@ -2013,7 +2117,8 @@
           delRowBtn.type = "button";
           delRowBtn.className = "row-actions-btn";
           delRowBtn.textContent = "🗑";
-          delRowBtn.addEventListener("click", () => deleteRow(tr.dataset.rowId));
+          // ✅ الآن: حذف محلي + يتنفّذ في الباك عند Save table
+          delRowBtn.addEventListener("click", () => deleteRowLocally(tr.dataset.rowId));
           actionsTd.appendChild(delRowBtn);
           tr.appendChild(actionsTd);
         }
@@ -2024,7 +2129,9 @@
       const rowCount = (items || []).length;
       setRowCount(rowCount);
       hasDataInGrid = rowCount > 0;
-      btnUpload.disabled = !hasDataInGrid || !editMode;
+
+      updateSelectAllState();
+      updateBulkDeleteButtonState();
     }
 
     function setData(items) {
@@ -2032,9 +2139,14 @@
         const copy = { ...row };
         copy._rowId = generateRowId();
         copy._origOrder = i + 1;
-        copy._dirty = {}; // ✅ track changed fields
+        copy._dirty = {};
         return copy;
       });
+
+      // reset selections / pending deletes on fresh load
+      selectedRowIds.clear();
+      pendingDeletePks.clear();
+      updateBulkDeleteButtonState();
 
       buildColumnsFromItems(fullItems);
 
@@ -2083,17 +2195,14 @@
           let v = (row[col] ?? "");
           const s = (v ?? "").toString().trim();
 
-          // لو dropdown واتختار "—" => تفريغ فعلي
           if (col === TYPE_COL || col === GATE_COL) {
             obj[col] = (s === "") ? REMOVE_MARKER : s;
             continue;
           }
 
-          // باقي الأعمدة: لو اتلمست واتمسحت => REMOVE
           obj[col] = (s === "") ? REMOVE_MARKER : s;
         }
 
-        // لو مفيش غير pk
         if (Object.keys(obj).length > 1) rows.push(obj);
       }
 
@@ -2106,14 +2215,28 @@
         editToggleBtn.setAttribute("aria-pressed", "true");
         editControls.style.display = "flex";
         setStatus("Edit mode is ON.", "");
+
+        // ✅ show bulk delete only in edit mode
+        btnBulkDelete.style.display = "inline-flex";
       } else {
         editToggleBtn.classList.remove("on");
         editToggleBtn.setAttribute("aria-pressed", "false");
         editControls.style.display = "none";
         setStatus("", "");
+
+        // ✅ hide bulk delete when not in edit mode
+        btnBulkDelete.style.display = "none";
+
+        // لما تخرج من edit: نعيد ترتيب + نعمل render مرة واحدة
+        applyAlarmRanksToRows();
+        sortByCompletenessAndReindex();
+        buildAlarms();
+        applyFilter();
       }
+
       renderHeader();
       applyFilter();
+      updateBulkDeleteButtonState();
     }
 
     function addRow() {
@@ -2125,8 +2248,8 @@
 
       fullItems.push(newRow);
 
+      // في edit mode ما نعملش sort/reindex أثناء الكتابة
       applyAlarmRanksToRows();
-      sortByCompletenessAndReindex();
       buildAlarms();
 
       applyFilter();
@@ -2168,56 +2291,72 @@
       });
     }
 
-    async function deleteRow(rowId) {
+    // ✅ local delete (defer backend delete until Save table)
+    function deleteRowLocally(rowId) {
       if (!rowId) return;
 
       const row = fullItems.find(r => r._rowId === rowId);
       if (!row) return;
 
       const pk = (row[PK_NAME] ?? "").toString().trim();
-      if (!pk) {
-        alert("This row has no Registration Number, cannot delete on server.");
-        return;
-      }
 
-      const ok = confirm(`Delete company with Registration Number ${pk} from server?`);
+      const ok = confirm(pk
+        ? `Remove ${pk} from the table now? (It will be deleted from server only when you press Save table)`
+        : `Remove this row from the table now?`);
       if (!ok) return;
 
-      try {
-        setLoading(true, `Deleting ${pk}...`);
+      if (pk) pendingDeletePks.add(pk);
 
-        const resp = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "delete",
-            registration_numbers: [pk]
-          })
-        });
+      // remove selection if selected
+      selectedRowIds.delete(rowId);
 
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
+      // remove from dataset
+      fullItems = fullItems.filter(r => r._rowId !== rowId);
 
-        const data = await parseApiJson(resp);
-        const deleted = data.deleted ?? 1;
-        if (deleted <= 0) {
-          setStatus("Server did not delete any items (maybe key not found).", "error");
-          return;
-        }
+      // update computed + rerender (safe لأن ده click مش كتابة)
+      applyAlarmRanksToRows();
+      sortByCompletenessAndReindex();
+      buildAlarms();
+      applyFilter();
 
-        fullItems = fullItems.filter(r => r._rowId !== rowId);
+      updateBulkDeleteButtonState();
+      setStatus(pk ? `Marked ${pk} for deletion. Press Save table to apply on server.` : "Row removed locally.", "success");
+    }
 
-        applyAlarmRanksToRows();
-        sortByCompletenessAndReindex();
-        buildAlarms();
+    // ✅ bulk delete button handler
+    function bulkDeleteSelectedRows() {
+      if (!editMode) return;
+      if (!selectedRowIds.size) return;
 
-        applyFilter();
-        setStatus(`Row ${pk} deleted from server.`, "success");
-      } catch (err) {
-        console.error(err);
-        setStatus("Error while deleting row from server.", "error");
-      } finally {
-        setLoading(false);
-      }
+      const ids = Array.from(selectedRowIds);
+      const pks = [];
+
+      ids.forEach(id => {
+        const row = fullItems.find(r => r._rowId === id);
+        if (!row) return;
+        const pk = (row[PK_NAME] ?? "").toString().trim();
+        if (pk) pks.push(pk);
+      });
+
+      const ok = confirm(`Remove ${ids.length} selected row(s) from the table now? (They will be deleted from server only when you press Save table)`);
+      if (!ok) return;
+
+      pks.forEach(pk => pendingDeletePks.add(pk));
+
+      // remove all selected from fullItems
+      fullItems = fullItems.filter(r => !selectedRowIds.has(r._rowId));
+
+      selectedRowIds.clear();
+      updateBulkDeleteButtonState();
+
+      applyAlarmRanksToRows();
+      sortByCompletenessAndReindex();
+      buildAlarms();
+      applyFilter();
+
+      setStatus(pks.length
+        ? `Marked ${pks.length} company(s) for deletion. Press Save table to delete on server.`
+        : "Selected rows removed locally.", "success");
     }
 
     function cancelEdit() {
@@ -2254,32 +2393,84 @@
       }
     }
 
+    async function runServerDeleteIfAny() {
+      const deletions = Array.from(pendingDeletePks);
+      if (!deletions.length) return { deleted: 0 };
+
+      showOverlay(`Deleting ${deletions.length} company(s) from server...`);
+
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "delete",
+          registration_numbers: deletions
+        })
+      });
+
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+      const data = await parseApiJson(resp);
+      const deleted = data.deleted ?? deletions.length;
+      return { deleted };
+    }
+
+    async function runServerMergeIfAny(records) {
+      if (!records.length) return { merged: 0, created: 0, skipped: 0, errors: 0 };
+
+      showOverlay("Saving changes (merge + remove) ...");
+
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "merge", skip_empty: true, records })
+      });
+
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+      const data = await parseApiJson(resp);
+      return {
+        merged: data.merged ?? 0,
+        created: data.created ?? 0,
+        skipped: data.skipped ?? 0,
+        errors: data.errors ?? 0
+      };
+    }
+
     async function uploadGridToServer() {
       const rows = collectTableDataFromDom();
-      if (!rows.length) {
-        setStatus("No changes to save (no dirty fields).", "error");
+      const deletionsCount = pendingDeletePks.size;
+
+      if (!rows.length && deletionsCount === 0) {
+        setStatus("No changes to save.", "error");
         return;
       }
 
       try {
-        setLoading(true, "Saving changes (merge + remove) ...");
+        setLoading(true, "Saving...");
 
-        const resp = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "merge", skip_empty: true, records: rows })
-        });
+        // 1) delete first (deferred)
+        let delRes = { deleted: 0 };
+        if (deletionsCount > 0) {
+          delRes = await runServerDeleteIfAny();
+        }
 
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        // 2) merge updates
+        let mergeRes = { merged: 0, created: 0, skipped: 0, errors: 0 };
+        if (rows.length > 0) {
+          mergeRes = await runServerMergeIfAny(rows);
+        }
 
-        const data = await parseApiJson(resp);
-        const merged = data.merged ?? 0;
-        const created = data.created ?? 0;
-        const skipped = data.skipped ?? 0;
-        const errors = data.errors ?? 0;
+        // clear pending after successful operations
+        pendingDeletePks.clear();
+        selectedRowIds.clear();
+        updateBulkDeleteButtonState();
 
-        if (errors > 0) setStatus(`Saved with warnings: merged ${merged}, created ${created}, skipped ${skipped}, errors ${errors}.`, "error");
-        else setStatus(`Saved successfully: merged ${merged}, created ${created}, skipped ${skipped}.`, "success");
+        if (mergeRes.errors > 0) {
+          setStatus(`Saved with warnings: deleted ${delRes.deleted}, merged ${mergeRes.merged}, created ${mergeRes.created}, skipped ${mergeRes.skipped}, errors ${mergeRes.errors}.`, "error");
+        } else {
+          setStatus(`Saved successfully: deleted ${delRes.deleted}, merged ${mergeRes.merged}, created ${mergeRes.created}, skipped ${mergeRes.skipped}.`, "success");
+        }
 
         await loadFromServer();
       } catch (err) {
@@ -2313,11 +2504,10 @@
             if (k === pkKey) continue;
 
             const s = (v ?? "").toString().trim();
-            // Excel merge: هنا بنعمل نفس سلوكك القديم: ندمج غير الفاضي فقط
             if (!s) continue;
 
             existing[k] = v;
-            markDirty(existing, k); // ✅ لو اتغير من Excel اعتبره Dirty
+            markDirty(existing, k);
           }
           updated += 1;
         } else {
@@ -2326,7 +2516,6 @@
           copy._origOrder = fullItems.length + 1;
           copy._dirty = {};
 
-          // اعتبر كل اللي جاي من Excel تغييرات
           Object.keys(xr || {}).forEach(k => {
             if (k === pkKey) return;
             const s = (xr[k] ?? "").toString().trim();
@@ -2382,7 +2571,6 @@
             setStatus(`Excel merged: updated ${r.updated}, added ${r.added}. Now you can save to server.`, "success");
           } else {
             setData(validRows);
-            // اعتبر البيانات الجديدة ليست dirty تلقائياً (لو تحبها dirty قولّي)
             setStatus(`File loaded. ${validRows.length} rows are ready in the grid (you can edit them).`, "success");
           }
         } catch (err) {
@@ -2396,6 +2584,7 @@
       reader.readAsArrayBuffer(file);
     });
 
+    // ✅ FIX typing issue: NO rerender while typing
     tableBody.addEventListener("focusin", (e) => {
       if (!editMode) return;
       if (e.target && e.target.tagName === "SELECT") return;
@@ -2422,17 +2611,26 @@
       const row = fullItems.find(r => r._rowId === rowId);
       if (!row) return;
 
-      row[col] = td.textContent.trim();
-      markDirty(row, col); // ✅ مهم
+      // ✅ update model without applyFilter/renderRows
+      row[col] = td.textContent; // no trim (علشان ما يقطعش الكتابة)
+      markDirty(row, col);
 
+      // ✅ update row class only (no rerender)
+      const rawDocs = (row[DOCS_COL] ?? "").toString().trim();
+      row._docsLevel = getDocsLevel(rawDocs);
+
+      const prevLevel = row._alarmLevel;
+      applyAlarmRanksToRows(); // updates _alarmLevel/_alarmCount etc for all (still no rerender)
+      const newLevel = row._alarmLevel;
+
+      if (prevLevel !== newLevel) {
+        tr.classList.remove("alarm-critical", "alarm-warning");
+        if (newLevel === "fake" || newLevel === "critical") tr.classList.add("alarm-critical");
+        else if (newLevel === "warning") tr.classList.add("alarm-warning");
+      }
+
+      scheduleRecomputeAlarms();
       isTypingInCell = true;
-      clearTimeout(_typingTimer);
-      _typingTimer = setTimeout(() => {
-        applyAlarmRanksToRows();
-        sortByCompletenessAndReindex();
-        buildAlarms();
-        applyFilter();
-      }, 350);
     });
 
     tableBody.addEventListener("focusout", (e) => {
@@ -2444,15 +2642,9 @@
       const col = td.dataset.colName;
       if (!col || col === FAKE_COL || col === DOCS_COL) return;
 
+      // ✅ لا rerender هنا
       isTypingInCell = false;
-
-      clearTimeout(_blurRenderTimer);
-      _blurRenderTimer = setTimeout(() => {
-        applyAlarmRanksToRows();
-        sortByCompletenessAndReindex();
-        buildAlarms();
-        applyFilter();
-      }, 0);
+      scheduleRecomputeAlarms();
     }, true);
 
     alarmBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleAlarmPanel(); });
@@ -2464,9 +2656,13 @@
     btnAddRow.addEventListener("click", addRow);
     btnCancelEdit.addEventListener("click", cancelEdit);
 
+    // ✅ keep: لا تعمل فلترة أثناء الكتابة داخل خلية
     searchInput.addEventListener("input", () => { if (!isTypingInCell) applyFilter(); });
 
     editToggleBtn.addEventListener("click", () => { editMode = !editMode; updateEditModeUI(); });
+
+    // ✅ bulk delete
+    btnBulkDelete.addEventListener("click", bulkDeleteSelectedRows);
 
     function generateUserId() {
       if (window.crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -2495,6 +2691,8 @@
       }
     });
 
+    // init
+    btnBulkDelete.style.display = "none";
     setData([]);
     loadFromServer();
   </script>
