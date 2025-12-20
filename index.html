@@ -1,0 +1,2503 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Eltourath Companies – Dynamic Table</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- SheetJS for Excel reading in browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-soft: #e0edff;
+      --primary-dark: #1d4ed8;
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --radius-xl: 20px;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #e0edff 0, #f9fafb 55%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 1449px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-soft);
+      padding: 24px 24px 18px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .title-block h1 {
+      font-size: 1.7rem;
+      margin: 0 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tag-pill {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      color: var(--text-muted);
+      background: #f3f4f6;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+      border: 1px solid rgba(191, 219, 254, 0.9);
+    }
+
+    .btn.secondary {
+      background: #f3f4f6;
+      color: var(--text-main);
+      box-shadow: none;
+      border-color: #d1d5db;
+      direction: rtl;
+    }
+
+    .btn.small {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      box-shadow: none;
+    }
+
+    .btn.danger {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fecaca;
+      box-shadow: none;
+    }
+
+    .btn.warning {
+      background: #fef9c3;
+      color: #92400e;
+      border-color: #fde68a;
+      box-shadow: none;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .btn:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.45);
+    }
+
+    .btn-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .file-input-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .file-input-label input[type="file"] {
+      font-size: 0.85rem;
+      padding: 4px;
+    }
+
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .search-input {
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      min-width: 180px;
+      background: #f9fafb;
+      color: var(--text-main);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+      background: #ffffff;
+    }
+
+    .edit-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .edit-switch-indicator {
+      width: 30px;
+      height: 16px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .edit-switch-indicator::before {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #ffffff;
+      top: 1px;
+      left: 2px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+
+    .edit-switch.on {
+      border-color: var(--primary);
+      background: #e0edff;
+      color: #1f2937;
+    }
+
+    .edit-switch.on .edit-switch-indicator {
+      background: #bfdbfe;
+    }
+
+    .edit-switch.on .edit-switch-indicator::before {
+      transform: translateX(12px);
+      background: var(--primary);
+    }
+
+    .edit-controls {
+      display: none;
+      margin-bottom: 10px;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin: 4px 2px 2px;
+      min-height: 1em;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .status.success {
+      color: var(--success);
+    }
+
+    .table-shell {
+      margin-top: 4px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: #f9fafb;
+      overflow: hidden;
+    }
+
+    .table-toolbar {
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #eff6ff, #f9fafb);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .table-toolbar .count {
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .table-container {
+      max-height: 440px;
+      overflow: auto;
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      color: var(--text-main);
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    thead tr {
+      background: #f3f4f6;
+      box-shadow: 0 1px 0 #e5e7eb;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 6px 10px;
+      text-align: left;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    th {
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #ffffff;
+    }
+
+    td[contenteditable="true"] {
+      cursor: text;
+    }
+
+    td[contenteditable="true"]:focus {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+      background: #eff6ff;
+    }
+
+    .pk-cell {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .row-actions-btn {
+      border-radius: 999px;
+      border: 1px solid #fecaca;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+
+    .row-actions-btn:hover {
+      background: #fecaca;
+    }
+
+    .cell-select {
+      width: 100%;
+      min-width: 140px;
+      border: 1px solid #d1d5db;
+      background: linear-gradient(180deg, #ffffff, #f9fafb);
+      color: var(--text-main);
+      border-radius: 12px;
+      padding: 6px 34px 6px 10px;
+      font-size: 0.82rem;
+      outline: none;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    td.select-td {
+      position: relative;
+      padding: 4px 10px;
+    }
+
+    td.select-td::after {
+      content: "▾";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #6b7280;
+      pointer-events: none;
+      font-size: 0.85rem;
+    }
+
+    .cell-select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+      background: #ffffff;
+    }
+
+    /* ====== Alarm UI ====== */
+    .alarm-btn {
+      position: relative;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      padding: 7px 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .alarm-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.10);
+    }
+
+    .alarm-bell {
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+
+    .alarm-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 0.72rem;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #fff;
+      box-shadow: 0 8px 18px rgba(220, 38, 38, 0.25);
+    }
+
+    .alarm-panel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: min(520px, calc(100vw - 48px));
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+      overflow: hidden;
+      display: none;
+      z-index: 10;
+    }
+
+    .alarm-panel-header {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: linear-gradient(90deg, #eff6ff, #ffffff);
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .alarm-panel-header strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .alarm-panel-body {
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    .alarm-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .alarm-item:last-child {
+      border-bottom: none;
+    }
+
+    .alarm-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-top: 4px;
+      flex-shrink: 0;
+      background: #e5e7eb;
+    }
+
+    .alarm-dot.critical {
+      background: #dc2626;
+    }
+
+    .alarm-dot.warning {
+      background: #f59e0b;
+    }
+
+    .alarm-text {
+      font-size: 0.85rem;
+      color: var(--text-main);
+      line-height: 1.35;
+      direction: rtl;
+    }
+
+    .alarm-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    tr.alarm-critical td {
+      background: #fee2e2 !important;
+    }
+
+    tr.alarm-warning td {
+      background: #fef9c3 !important;
+    }
+
+    tr.alarm-critical td:first-child,
+    tr.alarm-warning td:first-child {
+      border-left: 4px solid transparent;
+    }
+
+    tr.alarm-critical td:first-child {
+      border-left-color: #dc2626 !important;
+    }
+
+    tr.alarm-warning td:first-child {
+      border-left-color: #f59e0b !important;
+    }
+
+    /* ===== ✅ Row highlight when clicking alarm ===== */
+    tr.row-focus-highlight td {
+      background: #dbeafe !important;
+      transition: background 0.2s ease;
+    }
+
+    tr.row-focus-highlight td:first-child {
+      border-left: 4px solid #2563eb !important;
+    }
+
+    /* ===== Loading Overlay ===== */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    .loading-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 3px solid #e5e7eb;
+      border-top-color: var(--primary);
+      animation: spin 0.9s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 0.9rem;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ===== Details modals ===== */
+    #fakeModal .loading-card,
+    #docsModal .loading-card {
+      align-items: flex-start;
+      max-width: 560px;
+      width: min(560px, calc(100vw - 48px));
+      gap: 0;
+      max-height: 80vh;
+      overflow: hidden;
+    }
+
+    #fakeModalBody,
+    #docsModalBody {
+      text-align: center;
+      max-height: calc(80vh - 60px);
+      overflow: auto;
+      padding-right: 6px;
+    }
+
+    #fakeModalBody hr,
+    #docsModalBody hr {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 10px 0;
+    }
+
+    .fake-invoice-block,
+    .docs-block {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .fake-invoice-block strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #991b1b;
+      font-weight: 800;
+    }
+
+    .docs-block strong {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 16px 10px;
+      }
+
+      .card {
+        padding: 18px 14px 14px;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .title-block h1 {
+        font-size: 1.35rem;
+      }
+
+      .tag-pill {
+        align-self: flex-start;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .btn,
+      .controls .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .search-wrapper {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+        gap: 8px;
+      }
+
+      .search-wrapper>span {
+        white-space: nowrap;
+      }
+
+      .search-input {
+        width: 100%;
+        min-width: 0;
+      }
+
+      #alarmWrap {
+        width: 100%;
+      }
+
+      .alarm-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .alarm-panel {
+        left: 0;
+        right: 0;
+        width: 100%;
+        top: calc(100% + 8px);
+      }
+
+      .edit-switch {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .edit-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .file-input-label {
+        width: 100%;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .file-input-label input[type="file"] {
+        width: 100%;
+      }
+
+      .table-container {
+        max-height: 58vh;
+      }
+
+      table {
+        font-size: 0.78rem;
+      }
+
+      th,
+      td {
+        padding: 6px 8px;
+      }
+
+      .cell-select {
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .title-block h1 {
+        font-size: 1.2rem;
+      }
+
+      .tag-pill {
+        font-size: 0.75rem;
+        padding: 3px 9px;
+      }
+
+      .table-container {
+        max-height: 55vh;
+      }
+
+      table {
+        font-size: 0.74rem;
+      }
+
+      th,
+      td {
+        padding: 6px 7px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div class="title-block">
+          <h1>Eltourath Companies</h1>
+        </div>
+        <div class="tag-pill">Editable grid · Excel-style workflow</div>
+      </div>
+
+      <div class="controls">
+        <button id="btnReload" class="btn">
+          <span class="btn-icon">⟳</span>
+          <span>Refresh Data</span>
+        </button>
+
+        <button id="btnIntegrationPortal" class="btn secondary" type="button"
+          title="Open Integration Portal with random userId">
+          <span class="btn-icon">🔗</span>
+          <span>إضافة شركة وربط البورتال</span>
+        </button>
+
+        <a href="https://f74f396b-8b77-4500-b7c8-82332b9deedc-00-ta0ekbizmfj2.picard.replit.dev/">
+          <button id="btnIntegrationSap" class="btn secondary" type="button" title="Open Integration Sap">
+            <span class="btn-icon">🔗</span>
+            <span>إضافة شركة وربط SAP</span>
+          </button>
+        </a>
+
+        <div class="search-wrapper">
+          <span style="font-size:0.8rem;color:var(--text-muted);">Search:</span>
+          <input id="searchInput" class="search-input" type="text" placeholder="Search in any column..." />
+        </div>
+
+        <div id="alarmWrap" style="position:relative; display:inline-flex; align-items:center;">
+          <button id="alarmBtn" type="button" class="alarm-btn" title="Alarms">
+            <span class="alarm-bell">🔔</span>
+            <span style="font-size:0.85rem;color:var(--text-muted);">Alarms</span>
+            <span id="alarmBadge" class="alarm-badge">0</span>
+          </button>
+
+          <div id="alarmPanel" class="alarm-panel" role="dialog" aria-label="Alarms panel">
+            <div class="alarm-panel-header">
+              <div><strong id="alarmTitle">Alarms</strong> <span id="alarmSummary"></span></div>
+              <button id="alarmClose" type="button" class="btn small secondary"
+                style="padding:5px 10px;">Close</button>
+            </div>
+            <div id="alarmList" class="alarm-panel-body"></div>
+          </div>
+        </div>
+
+        <button id="editToggleBtn" type="button" class="edit-switch" aria-pressed="false">
+          <span class="edit-switch-indicator"></span>
+          <span class="edit-switch-text">Edit mode</span>
+        </button>
+      </div>
+
+      <div id="editControls" class="edit-controls">
+        <label class="file-input-label">
+          <span>Excel file:</span>
+          <input id="excelInput" type="file" accept=".xlsx,.xls" />
+        </label>
+
+        <button id="btnUpload" class="btn secondary" disabled>
+          <span class="btn-icon">⬆️</span>
+          <span>Save table</span>
+        </button>
+
+        <button id="btnAddRow" class="btn small secondary">
+          <span class="btn-icon">＋</span>
+          <span>اضافة شركه جديده</span>
+        </button>
+
+        <a href="https://mf-lambda-function.s3.us-east-1.amazonaws.com/%D8%B4%D8%B1%D9%8A%D9%83%D8%A7%D8%AA+%D8%A7%D9%84%D9%85%D9%83%D8%AA%D8%A8.xlsx">
+          <button class="btn small secondary">
+            <span class="btn-icon">⬇️</span>
+            <span>تحميل الملف فارغ</span>
+          </button>
+        </a>
+
+        <button id="btnCancelEdit" class="btn small danger">
+          <span class="btn-icon">✕</span>
+          <span>Cancel edit</span>
+        </button>
+      </div>
+
+      <div id="status" class="status"></div>
+
+      <div class="table-shell">
+        <div class="table-toolbar">
+          <div class="hint"></div>
+          <div class="count" id="rowCount">0 rows</div>
+        </div>
+
+        <div class="table-container">
+          <table id="companiesTable">
+            <thead>
+              <tr id="tableHeaderRow"></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-text">Working...</div>
+    </div>
+  </div>
+
+  <div id="fakeModal" class="loading-overlay" aria-hidden="true">
+    <div class="loading-card">
+      <div style="width:100%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+          <div style="font-weight:900;color:#991b1b;">تفصيل الفواتير الوهمية</div>
+          <button id="fakeCloseBtn" class="btn small secondary" type="button"
+            style="padding:5px 10px;">Close</button>
+        </div>
+        <div id="fakeModalBody" style="font-size:0.86rem;line-height:1.65;color:var(--text-main);"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="docsModal" class="loading-overlay" aria-hidden="true">
+    <div class="loading-card">
+      <div style="width:100%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+          <div id="docsModalTitle" style="font-weight:900;color:#0f172a;">تفصيل الوثائق</div>
+          <button id="docsCloseBtn" class="btn small secondary" type="button"
+            style="padding:5px 10px;">Close</button>
+        </div>
+        <div id="docsModalBody" style="font-size:0.86rem;line-height:1.65;color:var(--text-main);"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========= Config =========
+    const API_URL = "https://lroggfzkgi.execute-api.us-east-1.amazonaws.com/prod/fetch-company";
+    const PK_NAME = "Registration Number";
+    const COMPANY_COL = "Company Name";
+    const TYPE_COL = "Type of accounting";
+    const GATE_COL = "Gate type";
+    const FAKE_COL = "فواتير وهميه";
+    const DOCS_COL = "وثايق منتهيه";
+    const SAP_COL = "حالة اشتراك ال sap";
+    const RETURNS_COL = "حالة الاقرار";
+
+    // ✅ MUST match Lambda REMOVE_MARKER
+    const REMOVE_MARKER = "__REMOVE__";
+
+    // لازم يطابق SEP اللي في Lambda
+    const DOCS_SEP = " ||| ";
+
+    const INTEGRATION_PORTAL_BASE =
+      "https://80260658-9969-4960-972a-30a2dce3136f-00-24ift3w1jdzt3.spock.replit.dev:8000/?userId=";
+
+    const CURRENT_YEAR = new Date().getFullYear();
+    const SALES_COL_PREFIX = "اجمالي مبيعات";
+    const SALES_COL_CURRENT = `${SALES_COL_PREFIX} ${CURRENT_YEAR}`;
+
+    const ALARM_LIMIT = 20000000;   // 20,000,000
+    const ALARM_WARNING = 18000000; // 18,000,000
+
+    const IDX_COL_NAME = "#";
+
+    const PRIORITY_COLS = [
+      "Company Name",
+      "Registration Number",
+      "Type of accounting",
+      "Gate type",
+      "فواتير وهميه",
+      "وثايق منتهيه",
+      "حالة الاقرار",
+      "حالة اشتراك ال sap",
+      "اجمالي مبيعات 2025",
+      "اجمالي ضريبة المبيعات 2025",
+      "اجمالي مشتريات 2025",
+      "اجمالي ضريبة المشتريات 2025",
+      "اجمالي مبيعات 2024",
+      "اجمالي ضريبة المبيعات 2024",
+      "اجمالي مشتريات 2024",
+      "اجمالي ضريبة المشتريات 2024",
+    ];
+
+    const TYPE_OPTIONS = ["", "مبسط", "عادي"];
+    const GATE_OPTIONS = ["", "بوابة جديدة", "بوابة قديمة"];
+
+    // ========= DOM refs =========
+    const btnReload = document.getElementById("btnReload");
+    const btnUpload = document.getElementById("btnUpload");
+    const btnAddRow = document.getElementById("btnAddRow");
+    const btnCancelEdit = document.getElementById("btnCancelEdit");
+    const excelInput = document.getElementById("excelInput");
+    const searchInput = document.getElementById("searchInput");
+    const editToggleBtn = document.getElementById("editToggleBtn");
+    const editControls = document.getElementById("editControls");
+    const statusEl = document.getElementById("status");
+    const table = document.getElementById("companiesTable");
+    const tableBody = table.querySelector("tbody");
+    const tableHeaderRow = document.getElementById("tableHeaderRow");
+    const rowCountEl = document.getElementById("rowCount");
+    const btnIntegrationPortal = document.getElementById("btnIntegrationPortal");
+
+    // Loading overlay
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingTextEl = loadingOverlay.querySelector(".loading-text");
+
+    // Fake modal
+    const fakeModal = document.getElementById("fakeModal");
+    const fakeModalBody = document.getElementById("fakeModalBody");
+    const fakeCloseBtn = document.getElementById("fakeCloseBtn");
+
+    // Docs modal
+    const docsModal = document.getElementById("docsModal");
+    const docsModalBody = document.getElementById("docsModalBody");
+    const docsCloseBtn = document.getElementById("docsCloseBtn");
+    const docsModalTitle = document.getElementById("docsModalTitle");
+
+    function showOverlay(text = "Working...") {
+      loadingTextEl.textContent = text;
+      loadingOverlay.classList.add("show");
+      loadingOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function hideOverlay() {
+      loadingOverlay.classList.remove("show");
+      loadingOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    function openFakeModal() {
+      fakeModal.classList.add("show");
+      fakeModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeFakeModal() {
+      fakeModal.classList.remove("show");
+      fakeModal.setAttribute("aria-hidden", "true");
+      fakeModalBody.innerHTML = "";
+    }
+
+    function openDocsModal() {
+      docsModal.classList.add("show");
+      docsModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeDocsModal() {
+      docsModal.classList.remove("show");
+      docsModal.setAttribute("aria-hidden", "true");
+      docsModalBody.innerHTML = "";
+    }
+
+    fakeCloseBtn.addEventListener("click", closeFakeModal);
+    fakeModal.addEventListener("click", (e) => { if (e.target === fakeModal) closeFakeModal(); });
+
+    docsCloseBtn.addEventListener("click", closeDocsModal);
+    docsModal.addEventListener("click", (e) => { if (e.target === docsModal) closeDocsModal(); });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { closeFakeModal(); closeDocsModal(); }
+    });
+
+    // ========= state =========
+    let currentColumns = [];
+    let hasDataInGrid = false;
+    let fullItems = [];
+    let baselineItems = [];
+    let editMode = false;
+    let rowIdCounter = 0;
+
+    let alarms = [];
+
+    // typing guards
+    let isTypingInCell = false;
+    let _typingTimer = null;
+    let _blurRenderTimer = null;
+
+    function generateRowId() {
+      rowIdCounter += 1;
+      return "row_" + rowIdCounter + "_" + Date.now();
+    }
+
+    // ========= helpers =========
+    function setStatus(text, type = "") {
+      statusEl.textContent = text || "";
+      statusEl.classList.remove("error", "success");
+      if (type) statusEl.classList.add(type);
+    }
+
+    function setRowCount(count) {
+      rowCountEl.textContent = `${count} row${count === 1 ? "" : "s"}`;
+    }
+
+    function setLoading(isLoading, text = "Working...") {
+      btnReload.disabled = isLoading;
+      btnUpload.disabled = isLoading || !hasDataInGrid || !editMode;
+      btnIntegrationPortal.disabled = isLoading;
+      if (isLoading) {
+        showOverlay(text);
+        setStatus(text, "");
+      } else {
+        hideOverlay();
+      }
+    }
+
+    async function parseApiJson(resp) {
+      const raw = await resp.text();
+      console.log("Raw HTTP response:", raw);
+
+      let data = {};
+      try { data = JSON.parse(raw); }
+      catch (e) { console.error("Failed to parse JSON:", e); return {}; }
+
+      if (data && typeof data.body === "string") {
+        try { return JSON.parse(data.body); }
+        catch (e) { console.warn("Failed to parse inner body JSON:", e); return data; }
+      }
+      return data;
+    }
+
+    function isFilledCell(v) {
+      if (v == null) return false;
+      const s = String(v).trim();
+      return s !== "";
+    }
+
+    function completenessScore(row) {
+      let score = 0;
+      for (const col of currentColumns) {
+        if (col === "_rowId" || col === "_idx") continue;
+        if (isFilledCell(row[col])) score += 1;
+      }
+      return score;
+    }
+
+    function normalizeDigits(str) {
+      const map = {
+        "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4", "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
+        "۰": "0", "۱": "1", "۲": "2", "۳": "3", "۴": "4", "۵": "5", "۶": "6", "۷": "7", "۸": "8", "۹": "9"
+      };
+      return String(str).replace(/[٠-٩۰-۹]/g, ch => map[ch] ?? ch);
+    }
+
+    function parseMoneyToNumber(v) {
+      if (v == null) return NaN;
+      let s = normalizeDigits(String(v)).trim();
+      if (!s) return NaN;
+      s = s.replace(/[,،\s]/g, "");
+      s = s.replace(/[^\d.\-]/g, "");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function parseDateDMY(raw) {
+      const s0 = normalizeDigits(String(raw ?? "")).trim();
+      if (!s0) return null;
+
+      const m = s0.match(/(\d{1,2})\s*[\/\-]\s*(\d{1,2})\s*[\/\-]\s*(\d{4})/);
+      if (!m) return null;
+
+      const dd = Number(m[1]);
+      const mm = Number(m[2]);
+      const yyyy = Number(m[3]);
+      if (!dd || !mm || !yyyy) return null;
+
+      const d = new Date(yyyy, mm - 1, dd);
+      if (Number.isNaN(d.getTime())) return null;
+
+      if (d.getFullYear() !== yyyy || (d.getMonth() + 1) !== mm || d.getDate() !== dd) return null;
+      return d;
+    }
+
+    function daysDiff(fromDate, toDate) {
+      const ms = toDate.getTime() - fromDate.getTime();
+      return Math.floor(ms / (1000 * 60 * 60 * 24));
+    }
+
+    function endOfThisMonth() {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    function findSalesColumnName() {
+      if (currentColumns.includes(SALES_COL_CURRENT)) return SALES_COL_CURRENT;
+      const y = String(CURRENT_YEAR);
+      const hit = currentColumns.find(c => c.includes(SALES_COL_PREFIX) && c.includes(y));
+      if (hit) return hit;
+
+      const salesCols = currentColumns.filter(c => c.includes(SALES_COL_PREFIX));
+      if (!salesCols.length) return null;
+
+      let best = salesCols[0];
+      let bestYear = -Infinity;
+      for (const c of salesCols) {
+        const m = c.match(/(\d{4})/);
+        const yr = m ? Number(m[1]) : -Infinity;
+        if (yr > bestYear) { bestYear = yr; best = c; }
+      }
+      return best;
+    }
+
+    function getAlarmLevelForRow(row) {
+      const type = (row[TYPE_COL] ?? "").toString().trim();
+      if (type !== "مبسط") return "none";
+
+      const salesCol = findSalesColumnName();
+      if (!salesCol) return "none";
+
+      const sales = parseMoneyToNumber(row[salesCol]);
+      if (!Number.isFinite(sales)) return "none";
+
+      if (sales >= ALARM_LIMIT) return "critical";
+      if (sales >= ALARM_WARNING) return "warning";
+      return "none";
+    }
+
+    function hasFakeInvoices(row) {
+      const v = (row[FAKE_COL] ?? "").toString().trim();
+      return v !== "";
+    }
+
+    // ===== Docs parsing =====
+    function splitDocsMessages(raw) {
+      const s = (raw ?? "").toString().trim();
+      if (!s) return [];
+      if (s.includes(DOCS_SEP)) return s.split(DOCS_SEP).map(x => x.trim()).filter(Boolean);
+      return s.split(" : ").map(x => x.trim()).filter(Boolean);
+    }
+
+    function getDocsLevel(raw) {
+      const msgs = splitDocsMessages(raw);
+      if (!msgs.length) return "none";
+
+      const hasExpired = msgs.some(m => m.includes("انتهت منذ"));
+      if (hasExpired) return "expired";
+
+      const hasSoon = msgs.some(m => m.includes("ستنتهي خلال"));
+      if (hasSoon) return "soon";
+
+      return "soon";
+    }
+
+    // ===== SAP alarm =====
+    function getSapStatusInfo(row) {
+      const raw = (row[SAP_COL] ?? "").toString().trim();
+      if (!raw) return { level: "none" };
+
+      if (raw.includes("يحتاج") && raw.includes("تجديد") && raw.includes("الاشتراك")) {
+        return { level: "critical", mode: "renew", raw };
+      }
+
+      const d = parseDateDMY(raw);
+      if (!d) return { level: "none" };
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      d.setHours(0, 0, 0, 0);
+
+      const leftDays = daysDiff(today, d);
+
+      if (leftDays <= 0) {
+        return { level: "critical", mode: "expiredDate", date: d, leftDays, raw };
+      }
+
+      if (leftDays <= 30) {
+        return { level: "warning", mode: "soon", date: d, leftDays, raw };
+      }
+
+      return { level: "none", mode: "ok", date: d, leftDays, raw };
+    }
+
+    // ===== Returns alarm =====
+    function getReturnsStatusInfo(row) {
+      const raw = (row[RETURNS_COL] ?? "").toString().trim();
+      if (!raw) return { level: "none" };
+
+      if (raw.includes("لم يتم") && raw.includes("الارسال")) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const eom = endOfThisMonth();
+        eom.setHours(0, 0, 0, 0);
+
+        const left = daysDiff(now, eom);
+
+        if (left <= 10) return { level: "critical", leftDays: left, raw };
+        return { level: "warning", leftDays: left, raw };
+      }
+
+      return { level: "none", raw };
+    }
+
+    function parseFakeParts(raw) {
+      const parts = (raw || "").toString().split(" : ").map(s => s.trim()).filter(Boolean);
+      const out = [];
+      parts.forEach(p => {
+        const pieces = p.split(",").map(x => (x ?? "").trim());
+        const inv = pieces[0] || "-";
+        const dt = pieces[1] || "-";
+        const tax = pieces[2] || "-";
+        const name = pieces[3] || "-";
+        const m = String(dt).match(/(\d{4})/);
+        const year = m ? m[1] : "غير معروف";
+        out.push({ inv, dt, tax, name, year });
+      });
+      return out;
+    }
+
+    function buildFakeAlarmsForRow(row) {
+      const raw = (row[FAKE_COL] ?? "").toString().trim();
+      if (!raw) return [];
+
+      const company = (row[COMPANY_COL] ?? "").toString().trim() || "(بدون اسم)";
+      const pk = (row[PK_NAME] ?? "").toString().trim();
+
+      const details = parseFakeParts(raw);
+
+      const byYear = new Map();
+      details.forEach(d => {
+        const y = d.year || "غير معروف";
+        if (!byYear.has(y)) byYear.set(y, []);
+        byYear.get(y).push(d);
+      });
+
+      const out = [];
+      for (const [year, list] of byYear.entries()) {
+        out.push({
+          level: "critical",
+          pk,
+          company,
+          _fakeGroup: true,
+          _year: year,
+          _count: list.length,
+          _details: list,
+          message: `يوجد بشركة ${company} فواتير وهميه في سنة ${year} يرجي الانتباه لذلك واتخاذ الاجراءات اللازمه`
+        });
+      }
+      return out;
+    }
+
+    function buildDocsAlarmForRow(row) {
+      const raw = (row[DOCS_COL] ?? "").toString().trim();
+      if (!raw) return null;
+
+      const company = (row[COMPANY_COL] ?? "").toString().trim() || "(بدون اسم)";
+      const pk = (row[PK_NAME] ?? "").toString().trim();
+      const msgs = splitDocsMessages(raw);
+      if (!msgs.length) return null;
+
+      const docsLevel = row._docsLevel || getDocsLevel(raw);
+
+      if (docsLevel === "expired") {
+        return {
+          level: "critical",
+          pk,
+          company,
+          _docsGroup: true,
+          _docsLevel: "expired",
+          _docsCount: msgs.length,
+          message: `يوجد بشركة ${company} وثائق منتهيه يجب تجديدها`
+        };
+      }
+
+      return {
+        level: "warning",
+        pk,
+        company,
+        _docsGroup: true,
+        _docsLevel: "soon",
+        _docsCount: msgs.length,
+        message: `يوجد بشركة ${company} وثائق قربت تنتهي يرجي الانتباه`
+      };
+    }
+
+    function buildSapAlarmForRow(row) {
+      const info = getSapStatusInfo(row);
+      if (info.level === "none") return null;
+
+      const company = (row[COMPANY_COL] ?? "").toString().trim() || "(بدون اسم)";
+      const pk = (row[PK_NAME] ?? "").toString().trim();
+
+      if (info.mode === "renew") {
+        return {
+          level: "critical",
+          pk,
+          company,
+          _sapGroup: true,
+          message: `شركة ${company} اشتراك الـ SAP منتهي ويحتاج إلى تجديد الاشتراك`
+        };
+      }
+
+      const d = info.date;
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = String(d.getFullYear());
+      const dateStr = `${dd}/${mm}/${yyyy}`;
+
+      if (info.level === "critical") {
+        return {
+          level: "critical",
+          pk,
+          company,
+          _sapGroup: true,
+          _sapDate: dateStr,
+          message: `شركة ${company} اشتراك الـ SAP منتهي (تاريخ الانتهاء: ${dateStr})`
+        };
+      }
+
+      return {
+        level: "warning",
+        pk,
+        company,
+        _sapGroup: true,
+        _sapDate: dateStr,
+        message: `شركة ${company} اشتراك الـ SAP باقي له أقل من شهر (تاريخ الانتهاء: ${dateStr})`
+      };
+    }
+
+    function buildReturnsAlarmForRow(row) {
+      const info = getReturnsStatusInfo(row);
+      if (info.level === "none") return null;
+
+      const company = (row[COMPANY_COL] ?? "").toString().trim() || "(بدون اسم)";
+      const pk = (row[PK_NAME] ?? "").toString().trim();
+      const left = Number.isFinite(info.leftDays) ? info.leftDays : null;
+
+      if (info.level === "critical") {
+        return {
+          level: "critical",
+          pk,
+          company,
+          _returnsGroup: true,
+          _returnsLeft: left,
+          message: left != null
+            ? `شركة ${company} لم يتم إرسال الإقرار (متبقي ${left} يوم أو أقل على نهاية الشهر)`
+            : `شركة ${company} لم يتم إرسال الإقرار`
+        };
+      }
+
+      return {
+        level: "warning",
+        pk,
+        company,
+        _returnsGroup: true,
+        _returnsLeft: left,
+        message: left != null
+          ? `شركة ${company} لم يتم إرسال الإقرار (متبقي أكثر من 10 أيام على نهاية الشهر)`
+          : `شركة ${company} لم يتم إرسال الإقرار`
+      };
+    }
+
+    function getRowByPk(pk) {
+      const needle = (pk ?? "").toString().trim();
+      return fullItems.find(r => ((r[PK_NAME] ?? "") + "").toString().trim() === needle);
+    }
+
+    function getRowSeverityRank(row) {
+      if (hasFakeInvoices(row)) return 0;
+
+      const rawDocs = (row[DOCS_COL] ?? "").toString().trim();
+      if (rawDocs) {
+        const lvl = row._docsLevel || getDocsLevel(rawDocs);
+        if (lvl === "expired") return 0;
+      }
+
+      const salesLevel = getAlarmLevelForRow(row);
+      if (salesLevel === "critical") return 0;
+
+      const sapInfo = getSapStatusInfo(row);
+      if (sapInfo.level === "critical") return 0;
+
+      const rInfo = getReturnsStatusInfo(row);
+      if (rInfo.level === "critical") return 0;
+
+      if (salesLevel === "warning") return 1;
+
+      if (rawDocs) {
+        const lvl = row._docsLevel || getDocsLevel(rawDocs);
+        if (lvl === "soon") return 1;
+      }
+
+      if (sapInfo.level === "warning") return 1;
+      if (rInfo.level === "warning") return 1;
+
+      return 2;
+    }
+
+    function getRowTypePriority(row) {
+      if (hasFakeInvoices(row)) return 0;
+
+      const rawDocs = (row[DOCS_COL] ?? "").toString().trim();
+      if (rawDocs) {
+        const lvl = row._docsLevel || getDocsLevel(rawDocs);
+        if (lvl === "expired") return 1;
+      }
+
+      const salesLevel = getAlarmLevelForRow(row);
+      if (salesLevel === "critical") return 2;
+
+      const sapInfo = getSapStatusInfo(row);
+      if (sapInfo.level === "critical") return 3;
+
+      const rInfo = getReturnsStatusInfo(row);
+      if (rInfo.level === "critical") return 4;
+
+      if (salesLevel === "warning") return 0;
+
+      if (rawDocs) {
+        const lvl = row._docsLevel || getDocsLevel(rawDocs);
+        if (lvl === "soon") return 1;
+      }
+
+      if (sapInfo.level === "warning") return 2;
+      if (rInfo.level === "warning") return 3;
+
+      return 99;
+    }
+
+    function applyAlarmRanksToRows() {
+      for (const row of fullItems) {
+        const rawDocs = (row[DOCS_COL] ?? "").toString().trim();
+        const docsMsgs = splitDocsMessages(rawDocs);
+        row._docsLevel = getDocsLevel(rawDocs);
+
+        const fakeCount = hasFakeInvoices(row) ? (buildFakeAlarmsForRow(row).length || 1) : 0;
+        const docsCount = docsMsgs.length;
+
+        const salesLevel = getAlarmLevelForRow(row);
+        const salesCount = (salesLevel === "critical" || salesLevel === "warning") ? 1 : 0;
+
+        const sapInfo = getSapStatusInfo(row);
+        const sapCount = (sapInfo.level === "critical" || sapInfo.level === "warning") ? 1 : 0;
+
+        const rInfo = getReturnsStatusInfo(row);
+        const returnsCount = (rInfo.level === "critical" || rInfo.level === "warning") ? 1 : 0;
+
+        row._alarmCount = fakeCount + docsCount + salesCount + sapCount + returnsCount;
+
+        let maxSev = 0;
+        if (hasFakeInvoices(row)) maxSev = 2;
+
+        if (docsCount) {
+          if (row._docsLevel === "expired") maxSev = Math.max(maxSev, 2);
+          else if (row._docsLevel === "soon") maxSev = Math.max(maxSev, 1);
+        }
+
+        if (salesLevel === "critical") maxSev = Math.max(maxSev, 2);
+        else if (salesLevel === "warning") maxSev = Math.max(maxSev, 1);
+
+        if (sapInfo.level === "critical") maxSev = Math.max(maxSev, 2);
+        else if (sapInfo.level === "warning") maxSev = Math.max(maxSev, 1);
+
+        if (rInfo.level === "critical") maxSev = Math.max(maxSev, 2);
+        else if (rInfo.level === "warning") maxSev = Math.max(maxSev, 1);
+
+        row._maxSeverity = maxSev;
+
+        if (hasFakeInvoices(row)) {
+          row._alarmLevel = "fake";
+        } else {
+          row._alarmLevel = (maxSev === 2) ? "critical" : (maxSev === 1) ? "warning" : "none";
+        }
+
+        row._sevRank = getRowSeverityRank(row);
+        row._typeRank = getRowTypePriority(row);
+      }
+    }
+
+    function sortByCompletenessAndReindex() {
+      fullItems.sort((a, b) => {
+        const sa = Number(a._sevRank ?? 2);
+        const sb = Number(b._sevRank ?? 2);
+        if (sa !== sb) return sa - sb;
+
+        const ta = Number(a._typeRank ?? 99);
+        const tb = Number(b._typeRank ?? 99);
+        if (ta !== tb) return ta - tb;
+
+        const ca = Number(a._alarmCount || 0);
+        const cb = Number(b._alarmCount || 0);
+        if (cb !== ca) return cb - ca;
+
+        const xa = completenessScore(a);
+        const xb = completenessScore(b);
+        if (xb !== xa) return xb - xa;
+
+        const oa = Number(a._origOrder) || 0;
+        const ob = Number(b._origOrder) || 0;
+        if (oa !== ob) return oa - ob;
+
+        const pka = (a[PK_NAME] ?? "").toString();
+        const pkb = (b[PK_NAME] ?? "").toString();
+        return pka.localeCompare(pkb);
+      });
+
+      fullItems.forEach((row, i) => row._idx = i + 1);
+    }
+
+    function buildAlarms() {
+      const salesCol = findSalesColumnName();
+      alarms = [];
+
+      for (const row of fullItems) {
+        if (hasFakeInvoices(row)) alarms.push(...buildFakeAlarmsForRow(row));
+      }
+
+      if (salesCol) {
+        for (const row of fullItems) {
+          const level = getAlarmLevelForRow(row);
+          if (level === "none") continue;
+
+          const company = (row[COMPANY_COL] ?? "").toString().trim() || "(بدون اسم)";
+          const pk = (row[PK_NAME] ?? "").toString().trim();
+          const sales = parseMoneyToNumber(row[salesCol]);
+
+          const baseMsg = `شركة ${company} مسجله في نظام المحاسبه المبسط`;
+          const msg =
+            level === "critical"
+              ? `${baseMsg} وتخطت مبيعتها صافيه 20 مليون جنيه`
+              : `${baseMsg} واقتربت من 20 مليون جنيه (قربت على الحد)`;
+
+          alarms.push({ level, pk, company, sales, salesCol, _salesGroup: true, message: msg });
+        }
+      }
+
+      for (const row of fullItems) {
+        const a = buildDocsAlarmForRow(row);
+        if (a) alarms.push(a);
+      }
+
+      for (const row of fullItems) {
+        const a = buildSapAlarmForRow(row);
+        if (a) alarms.push(a);
+      }
+
+      for (const row of fullItems) {
+        const a = buildReturnsAlarmForRow(row);
+        if (a) alarms.push(a);
+      }
+
+      const rankLevel = { "critical": 0, "warning": 1, "none": 2 };
+      const groupRank = (x) =>
+        x._fakeGroup ? 0 :
+          (x._salesGroup ? 1 :
+            (x._docsGroup ? 2 :
+              (x._sapGroup ? 3 :
+                (x._returnsGroup ? 4 : 9))));
+
+      function companyAlarmCount(pk) {
+        const row = getRowByPk(pk);
+        return row ? Number(row._alarmCount || 0) : 0;
+      }
+
+      alarms.sort((a, b) => {
+        if (rankLevel[a.level] !== rankLevel[b.level]) return rankLevel[a.level] - rankLevel[b.level];
+
+        const ca = companyAlarmCount(a.pk);
+        const cb = companyAlarmCount(b.pk);
+        if (cb !== ca) return cb - ca;
+
+        const ga = groupRank(a), gb = groupRank(b);
+        if (ga !== gb) return ga - gb;
+
+        const sa = Number.isFinite(a.sales) ? a.sales : 0;
+        const sb = Number.isFinite(b.sales) ? b.sales : 0;
+        return sb - sa;
+      });
+
+      updateAlarmUI();
+    }
+
+    // alarms UI
+    const alarmBtn = document.getElementById("alarmBtn");
+    const alarmBadge = document.getElementById("alarmBadge");
+    const alarmPanel = document.getElementById("alarmPanel");
+    const alarmList = document.getElementById("alarmList");
+    const alarmClose = document.getElementById("alarmClose");
+    const alarmTitle = document.getElementById("alarmTitle");
+    const alarmSummary = document.getElementById("alarmSummary");
+
+    function closeAlarmPanel() { alarmPanel.style.display = "none"; }
+    function toggleAlarmPanel() {
+      alarmPanel.style.display = (alarmPanel.style.display === "block") ? "none" : "block";
+    }
+
+    function updateAlarmUI() {
+      const count = alarms.length;
+      if (count > 0) {
+        alarmBadge.style.display = "inline-flex";
+        alarmBadge.textContent = String(count);
+      } else {
+        alarmBadge.style.display = "none";
+        alarmBadge.textContent = "0";
+      }
+
+      alarmTitle.textContent = `Alarms (${count})`;
+      alarmSummary.textContent = count ? `• Year ${String(CURRENT_YEAR)}` : "";
+
+      alarmList.innerHTML = "";
+
+      if (!count) {
+        const empty = document.createElement("div");
+        empty.style.padding = "12px";
+        empty.style.fontSize = "0.85rem";
+        empty.style.color = "var(--text-muted)";
+        empty.textContent = "No alarms right now.";
+        alarmList.appendChild(empty);
+        return;
+      }
+
+      alarms.forEach(a => {
+        const item = document.createElement("div");
+        item.className = "alarm-item";
+
+        const dot = document.createElement("div");
+        dot.className = "alarm-dot " + (a.level === "critical" ? "critical" : (a.level === "warning" ? "warning" : ""));
+
+        const txtWrap = document.createElement("div");
+
+        const t = document.createElement("div");
+        t.className = "alarm-text";
+        t.textContent = a.message;
+
+        const sub = document.createElement("div");
+        sub.className = "alarm-sub";
+
+        if (a._fakeGroup) sub.textContent = `(عدد الفواتير الوهمية: ${a._count})`;
+        else if (a._docsGroup) sub.textContent = `(عدد الوثائق: ${a._docsCount || 0})`;
+        else if (a._sapGroup) sub.textContent = a._sapDate ? `(تاريخ الانتهاء: ${a._sapDate})` : "";
+        else if (a._returnsGroup) sub.textContent = (a._returnsLeft != null) ? `(المتبقي لنهاية الشهر: ${a._returnsLeft} يوم)` : "";
+        else if (a.salesCol) {
+          const salesText = Number.isFinite(a.sales) ? a.sales.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "";
+          sub.textContent = `(${a.salesCol}: ${salesText})`;
+        } else sub.textContent = "";
+
+        txtWrap.appendChild(t);
+        if (sub.textContent) txtWrap.appendChild(sub);
+
+        item.appendChild(dot);
+        item.appendChild(txtWrap);
+
+        item.style.cursor = "pointer";
+        item.addEventListener("click", () => {
+          closeAlarmPanel();
+
+          if (a._fakeGroup) {
+            const r = getRowByPk(a.pk);
+            if (r && (r[FAKE_COL] ?? "").toString().trim()) {
+              showFakeDetails(r[FAKE_COL]);
+              return;
+            }
+          }
+
+          if (a._docsGroup) {
+            const r = getRowByPk(a.pk);
+            if (r && (r[DOCS_COL] ?? "").toString().trim()) {
+              showDocsDetails(r[DOCS_COL]);
+              return;
+            }
+          }
+
+          focusRowByPk(a.pk);
+        });
+
+        alarmList.appendChild(item);
+      });
+    }
+
+    // ===== ✅ highlight row after scrolling =====
+    let _rowHighlightTimer = null;
+
+    function clearRowHighlight() {
+      const prev = tableBody.querySelector("tr.row-focus-highlight");
+      if (prev) prev.classList.remove("row-focus-highlight");
+      if (_rowHighlightTimer) {
+        clearTimeout(_rowHighlightTimer);
+        _rowHighlightTimer = null;
+      }
+    }
+
+    function highlightRowTemporarily(tr, ms = 2500) {
+      if (!tr) return;
+      clearRowHighlight();
+      tr.classList.add("row-focus-highlight");
+      _rowHighlightTimer = setTimeout(() => {
+        tr.classList.remove("row-focus-highlight");
+        _rowHighlightTimer = null;
+      }, ms);
+    }
+
+    function focusRowByPk(pk) {
+      if (!pk) return;
+
+      if (searchInput.value.trim()) {
+        searchInput.value = "";
+        renderRows(fullItems);
+      } else {
+        renderRows(fullItems);
+      }
+
+      const idx = fullItems.findIndex(r => (r[PK_NAME] ?? "").toString().trim() === pk);
+      if (idx < 0) return;
+
+      const rowId = fullItems[idx]._rowId;
+
+      requestAnimationFrame(() => {
+        const tr = tableBody.querySelector(`tr[data-row-id="${rowId}"]`);
+        if (!tr) return;
+
+        tr.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        setTimeout(() => {
+          const tr2 = tableBody.querySelector(`tr[data-row-id="${rowId}"]`);
+          highlightRowTemporarily(tr2, 2500);
+        }, 120);
+      });
+    }
+
+    // ========= columns & table render =========
+    function buildColumnsFromItems(items) {
+      const colSet = new Set();
+      (items || []).forEach(row => {
+        Object.keys(row || {}).forEach(k => {
+          if (k === "_rowId" || k === "_idx" || k === "_origOrder" || k === "_alarmLevel" || k === "_docsLevel" || k === "_alarmCount" || k === "_maxSeverity" || k === "_sevRank" || k === "_typeRank" || k === "_dirty") return;
+          colSet.add(k);
+        });
+      });
+
+      if (!colSet.size) colSet.add(PK_NAME);
+
+      const allCols = Array.from(colSet);
+      const remaining = allCols.filter(c => !PRIORITY_COLS.includes(c));
+      remaining.sort();
+
+      const ordered = PRIORITY_COLS.filter(c => colSet.has(c)).concat(remaining);
+      currentColumns = ordered;
+    }
+
+    function renderHeader() {
+      tableHeaderRow.innerHTML = "";
+
+      const thIdx = document.createElement("th");
+      thIdx.textContent = IDX_COL_NAME;
+      tableHeaderRow.appendChild(thIdx);
+
+      currentColumns.forEach((col) => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        tableHeaderRow.appendChild(th);
+      });
+
+      if (editMode) {
+        const thActions = document.createElement("th");
+        thActions.textContent = "Actions";
+        tableHeaderRow.appendChild(thActions);
+      }
+    }
+
+    function showFakeDetails(raw) {
+      const parts = (raw || "").toString().split(" : ").map(s => s.trim()).filter(Boolean);
+      fakeModalBody.innerHTML = "";
+
+      if (!parts.length) {
+        fakeModalBody.textContent = "لا توجد تفاصيل.";
+        openFakeModal();
+        return;
+      }
+
+      parts.forEach((p, i) => {
+        const pieces = p.split(",").map(x => (x ?? "").trim());
+        const inv = pieces[0] || "-";
+        const dt = pieces[1] || "-";
+        const tax = pieces[2] || "-";
+        const name = pieces[3] || "-";
+
+        const block = document.createElement("div");
+        block.className = "fake-invoice-block";
+        block.innerHTML = `
+          <strong>تفصيل الفاتورة</strong>
+          بتاريخ : ${dt}<br>
+          برقم تسجيل : ${tax}<br>
+          باسم : ${name}<br>
+          رقم الفاتورة : ${inv}
+        `;
+        fakeModalBody.appendChild(block);
+
+        if (i < parts.length - 1) {
+          const hr = document.createElement("hr");
+          fakeModalBody.appendChild(hr);
+        }
+      });
+
+      openFakeModal();
+    }
+
+    function showDocsDetails(raw) {
+      const msgs = splitDocsMessages(raw);
+      docsModalBody.innerHTML = "";
+
+      if (!msgs.length) {
+        docsModalTitle.textContent = "تفصيل الوثائق";
+        docsModalBody.textContent = "لا توجد تفاصيل.";
+        openDocsModal();
+        return;
+      }
+
+      const level = getDocsLevel(raw);
+      docsModalTitle.textContent = (level === "expired") ? "تفصيل الوثائق المنتهية" : "تفصيل الوثائق القريبة الانتهاء";
+
+      msgs.forEach((m, i) => {
+        const block = document.createElement("div");
+        block.className = "docs-block";
+        block.innerHTML = `
+          <strong>تنبيه</strong>
+          ${String(m).replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+        `;
+        docsModalBody.appendChild(block);
+
+        if (i < msgs.length - 1) {
+          const hr = document.createElement("hr");
+          docsModalBody.appendChild(hr);
+        }
+      });
+
+      openDocsModal();
+    }
+
+    function markDirty(row, col) {
+      if (!row) return;
+      row._dirty = row._dirty || {};
+      row._dirty[col] = true;
+    }
+
+    function makeSelectCell({ row, col, value, options, onChange }) {
+      const sel = document.createElement("select");
+      sel.className = "cell-select";
+      options.forEach(opt => {
+        const o = document.createElement("option");
+        o.value = opt;
+        o.textContent = opt === "" ? "—" : opt;
+        sel.appendChild(o);
+      });
+      sel.value = options.includes(value) ? value : (value ? value : "");
+      sel.addEventListener("change", () => {
+        markDirty(row, col); // ✅ مهم
+        onChange(sel.value);
+      });
+      return sel;
+    }
+
+    function renderRows(items) {
+      tableBody.innerHTML = "";
+
+      (items || []).forEach(row => {
+        const tr = document.createElement("tr");
+        tr.dataset.rowId = row._rowId || "";
+
+        if (row._alarmLevel === "fake" || row._alarmLevel === "critical") tr.classList.add("alarm-critical");
+        else if (row._alarmLevel === "warning") tr.classList.add("alarm-warning");
+
+        const tdIdx = document.createElement("td");
+        tdIdx.textContent = (row._idx != null && row._idx !== "") ? String(row._idx) : "";
+        tr.appendChild(tdIdx);
+
+        currentColumns.forEach((col, index) => {
+          const td = document.createElement("td");
+          td.dataset.colName = col;
+
+          if (col === FAKE_COL && (row[col] ?? "").toString().trim()) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn small danger";
+            btn.textContent = "عرض التفاصيل";
+            btn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              showFakeDetails(row[col]);
+            });
+            td.appendChild(btn);
+          }
+          else if (col === DOCS_COL && (row[col] ?? "").toString().trim()) {
+            const raw = (row[col] ?? "").toString();
+            const dLevel = getDocsLevel(raw);
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn small " + (dLevel === "expired" ? "danger" : "warning");
+            btn.textContent = "عرض التفاصيل";
+            btn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              showDocsDetails(raw);
+            });
+            td.appendChild(btn);
+          }
+          else if (editMode && (col === TYPE_COL || col === GATE_COL)) {
+            td.classList.add("select-td");
+
+            const currentVal = (row[col] ?? "").toString().trim();
+            const options = (col === TYPE_COL) ? TYPE_OPTIONS : GATE_OPTIONS;
+
+            const selectEl = makeSelectCell({
+              row,
+              col,
+              value: currentVal,
+              options,
+              onChange: (val) => {
+                row[col] = val;
+                clearTimeout(_typingTimer);
+                _typingTimer = setTimeout(() => {
+                  applyAlarmRanksToRows();
+                  sortByCompletenessAndReindex();
+                  buildAlarms();
+                  applyFilter();
+                }, 50);
+              }
+            });
+
+            td.appendChild(selectEl);
+            td.contentEditable = "false";
+          }
+          else {
+            td.textContent = row[col] ?? "";
+            td.contentEditable = editMode ? "true" : "false";
+          }
+
+          if (index === 0 && col === PK_NAME) td.classList.add("pk-cell");
+          tr.appendChild(td);
+        });
+
+        if (editMode) {
+          const actionsTd = document.createElement("td");
+          const delRowBtn = document.createElement("button");
+          delRowBtn.type = "button";
+          delRowBtn.className = "row-actions-btn";
+          delRowBtn.textContent = "🗑";
+          delRowBtn.addEventListener("click", () => deleteRow(tr.dataset.rowId));
+          actionsTd.appendChild(delRowBtn);
+          tr.appendChild(actionsTd);
+        }
+
+        tableBody.appendChild(tr);
+      });
+
+      const rowCount = (items || []).length;
+      setRowCount(rowCount);
+      hasDataInGrid = rowCount > 0;
+      btnUpload.disabled = !hasDataInGrid || !editMode;
+    }
+
+    function setData(items) {
+      fullItems = (items || []).map((row, i) => {
+        const copy = { ...row };
+        copy._rowId = generateRowId();
+        copy._origOrder = i + 1;
+        copy._dirty = {}; // ✅ track changed fields
+        return copy;
+      });
+
+      buildColumnsFromItems(fullItems);
+
+      applyAlarmRanksToRows();
+      sortByCompletenessAndReindex();
+      buildAlarms();
+
+      renderHeader();
+      renderRows(fullItems);
+    }
+
+    function applyFilter() {
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) {
+        renderRows(fullItems);
+        setStatus("", "");
+        return;
+      }
+
+      const filtered = fullItems.filter(row =>
+        currentColumns.some(col => ((row[col] ?? "") + "").toLowerCase().includes(q))
+      );
+
+      renderRows(filtered);
+      setStatus(`Showing ${filtered.length} of ${fullItems.length} rows (filtered).`, "");
+    }
+
+    // ✅ NEW: send only dirty fields (and allow real clearing via REMOVE_MARKER)
+    function collectTableDataFromDom() {
+      const rows = [];
+
+      for (const row of fullItems) {
+        const pk = (row[PK_NAME] ?? "").toString().trim();
+        if (!pk) continue;
+
+        const dirty = row._dirty || {};
+        const dirtyCols = Object.keys(dirty).filter(c => dirty[c]);
+
+        if (!dirtyCols.length) continue;
+
+        const obj = { [PK_NAME]: pk };
+
+        for (const col of dirtyCols) {
+          if (!col || col.startsWith("_")) continue;
+
+          let v = (row[col] ?? "");
+          const s = (v ?? "").toString().trim();
+
+          // لو dropdown واتختار "—" => تفريغ فعلي
+          if (col === TYPE_COL || col === GATE_COL) {
+            obj[col] = (s === "") ? REMOVE_MARKER : s;
+            continue;
+          }
+
+          // باقي الأعمدة: لو اتلمست واتمسحت => REMOVE
+          obj[col] = (s === "") ? REMOVE_MARKER : s;
+        }
+
+        // لو مفيش غير pk
+        if (Object.keys(obj).length > 1) rows.push(obj);
+      }
+
+      return rows;
+    }
+
+    function updateEditModeUI() {
+      if (editMode) {
+        editToggleBtn.classList.add("on");
+        editToggleBtn.setAttribute("aria-pressed", "true");
+        editControls.style.display = "flex";
+        setStatus("Edit mode is ON.", "");
+      } else {
+        editToggleBtn.classList.remove("on");
+        editToggleBtn.setAttribute("aria-pressed", "false");
+        editControls.style.display = "none";
+        setStatus("", "");
+      }
+      renderHeader();
+      applyFilter();
+    }
+
+    function addRow() {
+      const newRow = {};
+      currentColumns.forEach(col => newRow[col] = "");
+      newRow._rowId = generateRowId();
+      newRow._origOrder = fullItems.length + 1;
+      newRow._dirty = {};
+
+      fullItems.push(newRow);
+
+      applyAlarmRanksToRows();
+      sortByCompletenessAndReindex();
+      buildAlarms();
+
+      applyFilter();
+      setStatus("New empty row added. Fill it then save to server.", "");
+
+      scrollToRow(newRow);
+    }
+
+    function scrollToRow(row, behavior = "smooth") {
+      if (!row) return;
+
+      const oldQ = searchInput.value;
+      if (oldQ) {
+        searchInput.value = "";
+        renderRows(fullItems);
+      }
+
+      requestAnimationFrame(() => {
+        const tr = tableBody.querySelector(`tr[data-row-id="${row._rowId}"]`);
+        if (!tr) return;
+
+        tr.scrollIntoView({ behavior, block: "end", inline: "nearest" });
+
+        const container = document.querySelector(".table-container");
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const top = rect.top + window.scrollY - 90;
+          window.scrollTo({ top, behavior });
+        }
+
+        requestAnimationFrame(() => {
+          const r = tr.getBoundingClientRect();
+          const margin = 120;
+          if (r.top < 0 || r.bottom > window.innerHeight) {
+            const target = (r.top + window.scrollY) - margin;
+            window.scrollTo({ top: target, behavior });
+          }
+        });
+      });
+    }
+
+    async function deleteRow(rowId) {
+      if (!rowId) return;
+
+      const row = fullItems.find(r => r._rowId === rowId);
+      if (!row) return;
+
+      const pk = (row[PK_NAME] ?? "").toString().trim();
+      if (!pk) {
+        alert("This row has no Registration Number, cannot delete on server.");
+        return;
+      }
+
+      const ok = confirm(`Delete company with Registration Number ${pk} from server?`);
+      if (!ok) return;
+
+      try {
+        setLoading(true, `Deleting ${pk}...`);
+
+        const resp = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "delete",
+            registration_numbers: [pk]
+          })
+        });
+
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+        const data = await parseApiJson(resp);
+        const deleted = data.deleted ?? 1;
+        if (deleted <= 0) {
+          setStatus("Server did not delete any items (maybe key not found).", "error");
+          return;
+        }
+
+        fullItems = fullItems.filter(r => r._rowId !== rowId);
+
+        applyAlarmRanksToRows();
+        sortByCompletenessAndReindex();
+        buildAlarms();
+
+        applyFilter();
+        setStatus(`Row ${pk} deleted from server.`, "success");
+      } catch (err) {
+        console.error(err);
+        setStatus("Error while deleting row from server.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function cancelEdit() {
+      if (!baselineItems || !Array.isArray(baselineItems)) return;
+      setData(baselineItems);
+      searchInput.value = "";
+      editMode = false;
+      updateEditModeUI();
+    }
+
+    async function loadFromServer() {
+      try {
+        setLoading(true, "Loading data...");
+
+        const resp = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "list" })
+        });
+
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+        const data = await parseApiJson(resp);
+        const items = data.items || [];
+
+        baselineItems = JSON.parse(JSON.stringify(items));
+        setData(items);
+        setStatus("", "success");
+      } catch (err) {
+        console.error(err);
+        setStatus("Error while loading data from server.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function uploadGridToServer() {
+      const rows = collectTableDataFromDom();
+      if (!rows.length) {
+        setStatus("No changes to save (no dirty fields).", "error");
+        return;
+      }
+
+      try {
+        setLoading(true, "Saving changes (merge + remove) ...");
+
+        const resp = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "merge", skip_empty: true, records: rows })
+        });
+
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+        const data = await parseApiJson(resp);
+        const merged = data.merged ?? 0;
+        const created = data.created ?? 0;
+        const skipped = data.skipped ?? 0;
+        const errors = data.errors ?? 0;
+
+        if (errors > 0) setStatus(`Saved with warnings: merged ${merged}, created ${created}, skipped ${skipped}, errors ${errors}.`, "error");
+        else setStatus(`Saved successfully: merged ${merged}, created ${created}, skipped ${skipped}.`, "success");
+
+        await loadFromServer();
+      } catch (err) {
+        console.error(err);
+        setStatus("Error while saving data to server.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function mergeExcelIntoGrid(excelRows) {
+      const pkKey = PK_NAME;
+
+      const map = new Map();
+      fullItems.forEach(r => {
+        const pk = (r[pkKey] ?? "").toString().trim();
+        if (pk) map.set(pk, r);
+      });
+
+      let updated = 0;
+      let added = 0;
+
+      for (const xr of excelRows) {
+        const pk = (xr[pkKey] ?? "").toString().trim();
+        if (!pk) continue;
+
+        const existing = map.get(pk);
+
+        if (existing) {
+          for (const [k, v] of Object.entries(xr)) {
+            if (k === pkKey) continue;
+
+            const s = (v ?? "").toString().trim();
+            // Excel merge: هنا بنعمل نفس سلوكك القديم: ندمج غير الفاضي فقط
+            if (!s) continue;
+
+            existing[k] = v;
+            markDirty(existing, k); // ✅ لو اتغير من Excel اعتبره Dirty
+          }
+          updated += 1;
+        } else {
+          const copy = { ...xr };
+          copy._rowId = generateRowId();
+          copy._origOrder = fullItems.length + 1;
+          copy._dirty = {};
+
+          // اعتبر كل اللي جاي من Excel تغييرات
+          Object.keys(xr || {}).forEach(k => {
+            if (k === pkKey) return;
+            const s = (xr[k] ?? "").toString().trim();
+            if (s) copy._dirty[k] = true;
+          });
+
+          fullItems.push(copy);
+          map.set(pk, copy);
+          added += 1;
+        }
+      }
+
+      buildColumnsFromItems(fullItems);
+      applyAlarmRanksToRows();
+      sortByCompletenessAndReindex();
+      buildAlarms();
+      renderHeader();
+      applyFilter();
+
+      return { updated, added };
+    }
+
+    excelInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) {
+        hasDataInGrid = false;
+        btnUpload.disabled = true;
+        setRowCount(0);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[firstSheetName];
+
+          const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          const validRows = rows.filter(r => r[PK_NAME]);
+
+          if (validRows.length === 0) {
+            setStatus("The Excel file does not contain a valid 'Registration Number' column.", "error");
+            hasDataInGrid = false;
+            btnUpload.disabled = true;
+            setData([]);
+            return;
+          }
+
+          if (fullItems.length) {
+            const r = mergeExcelIntoGrid(validRows);
+            setStatus(`Excel merged: updated ${r.updated}, added ${r.added}. Now you can save to server.`, "success");
+          } else {
+            setData(validRows);
+            // اعتبر البيانات الجديدة ليست dirty تلقائياً (لو تحبها dirty قولّي)
+            setStatus(`File loaded. ${validRows.length} rows are ready in the grid (you can edit them).`, "success");
+          }
+        } catch (err) {
+          console.error(err);
+          setStatus("Error while reading the Excel file.", "error");
+          hasDataInGrid = false;
+          btnUpload.disabled = true;
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    tableBody.addEventListener("focusin", (e) => {
+      if (!editMode) return;
+      if (e.target && e.target.tagName === "SELECT") return;
+
+      const td = e.target.closest("td");
+      if (!td) return;
+      const col = td.dataset.colName;
+      if (!col || col === FAKE_COL || col === DOCS_COL) return;
+      isTypingInCell = true;
+    });
+
+    tableBody.addEventListener("input", (e) => {
+      if (!editMode) return;
+      if (e.target && e.target.tagName === "SELECT") return;
+
+      const td = e.target.closest("td");
+      const tr = e.target.closest("tr");
+      if (!td || !tr) return;
+
+      const col = td.dataset.colName;
+      if (!col || col === FAKE_COL || col === DOCS_COL) return;
+
+      const rowId = tr.dataset.rowId;
+      const row = fullItems.find(r => r._rowId === rowId);
+      if (!row) return;
+
+      row[col] = td.textContent.trim();
+      markDirty(row, col); // ✅ مهم
+
+      isTypingInCell = true;
+      clearTimeout(_typingTimer);
+      _typingTimer = setTimeout(() => {
+        applyAlarmRanksToRows();
+        sortByCompletenessAndReindex();
+        buildAlarms();
+        applyFilter();
+      }, 350);
+    });
+
+    tableBody.addEventListener("focusout", (e) => {
+      if (!editMode) return;
+      if (e.target && e.target.tagName === "SELECT") return;
+
+      const td = e.target.closest("td");
+      if (!td) return;
+      const col = td.dataset.colName;
+      if (!col || col === FAKE_COL || col === DOCS_COL) return;
+
+      isTypingInCell = false;
+
+      clearTimeout(_blurRenderTimer);
+      _blurRenderTimer = setTimeout(() => {
+        applyAlarmRanksToRows();
+        sortByCompletenessAndReindex();
+        buildAlarms();
+        applyFilter();
+      }, 0);
+    }, true);
+
+    alarmBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleAlarmPanel(); });
+    alarmClose.addEventListener("click", (e) => { e.stopPropagation(); closeAlarmPanel(); });
+    document.addEventListener("click", (e) => { if (!alarmPanel.contains(e.target) && !alarmBtn.contains(e.target)) closeAlarmPanel(); });
+
+    btnReload.addEventListener("click", loadFromServer);
+    btnUpload.addEventListener("click", uploadGridToServer);
+    btnAddRow.addEventListener("click", addRow);
+    btnCancelEdit.addEventListener("click", cancelEdit);
+
+    searchInput.addEventListener("input", () => { if (!isTypingInCell) applyFilter(); });
+
+    editToggleBtn.addEventListener("click", () => { editMode = !editMode; updateEditModeUI(); });
+
+    function generateUserId() {
+      if (window.crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+      return (
+        hex.slice(0, 8) + "-" +
+        hex.slice(8, 12) + "-" +
+        hex.slice(12, 16) + "-" +
+        hex.slice(16, 20) + "-" +
+        hex.slice(20)
+      );
+    }
+
+    btnIntegrationPortal.addEventListener("click", async () => {
+      try {
+        const userId = generateUserId();
+        const url = INTEGRATION_PORTAL_BASE + encodeURIComponent(userId);
+        window.location.href = url;
+      } catch (e) {
+        console.error(e);
+        setStatus("Failed to open integration portal.", "error");
+      }
+    });
+
+    setData([]);
+    loadFromServer();
+  </script>
+</body>
+
+</html>
