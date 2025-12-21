@@ -287,6 +287,7 @@
       max-height: 440px;
       overflow: auto;
       background: #ffffff;
+      direction: rtl;
     }
 
     table {
@@ -314,11 +315,13 @@
       text-align: left;
       white-space: nowrap;
       vertical-align: middle;
+      text-align: center;
     }
 
     th {
       font-weight: 500;
       color: var(--text-muted);
+      text-align: center;
     }
 
     tbody tr:nth-child(even) {
@@ -358,25 +361,10 @@
       background: #fecaca;
     }
 
-    .cell-select {
-      width: 100%;
-      min-width: 140px;
-      border: 1px solid #d1d5db;
-      background: linear-gradient(180deg, #ffffff, #f9fafb);
-      color: var(--text-main);
-      border-radius: 12px;
-      padding: 6px 34px 6px 10px;
-      font-size: 0.82rem;
-      outline: none;
-      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
-      appearance: none;
-      -webkit-appearance: none;
-      cursor: pointer;
-    }
-
+    /* ====== ✅ Professional Select / Pills ====== */
     td.select-td {
       position: relative;
-      padding: 4px 10px;
+      padding: 6px 10px !important;
     }
 
     td.select-td::after {
@@ -385,15 +373,77 @@
       right: 14px;
       top: 50%;
       transform: translateY(-50%);
-      color: #6b7280;
+      color: rgba(15, 23, 42, 0.55);
       pointer-events: none;
+      font-size: 0.9rem;
+    }
+
+    .cell-select {
+      width: 100%;
+      min-width: 140px;
+
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      color: var(--text-main);
+
+      border-radius: 999px;
+      padding: 7px 36px 7px 12px;
       font-size: 0.85rem;
+      font-weight: 700;
+
+      box-shadow:
+        0 1px 0 rgba(15, 23, 42, 0.04),
+        0 8px 20px rgba(15, 23, 42, 0.06);
+
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+    }
+
+    .cell-select:hover {
+      border-color: rgba(37, 99, 235, 0.35);
+      box-shadow:
+        0 1px 0 rgba(15, 23, 42, 0.04),
+        0 12px 28px rgba(15, 23, 42, 0.10);
+      transform: translateY(-1px);
     }
 
     .cell-select:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+      outline: none;
+      border-color: rgba(37, 99, 235, 0.55);
+      box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.15),
+        0 14px 34px rgba(15, 23, 42, 0.12);
       background: #ffffff;
+    }
+
+    /* Optional value tint */
+    .cell-select.value-mobassat {
+      border-color: rgba(245, 158, 11, 0.35);
+      background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
+    }
+
+    .cell-select.value-3ady {
+      border-color: rgba(34, 197, 94, 0.28);
+      background: linear-gradient(180deg, #ecfdf5 0%, #fff 100%);
+    }
+
+    /* ===== ✅ Darker alarm cell highlight inside colored rows ===== */
+    td.alarm-cell-critical {
+      background: #fecaca !important; /* darker than row red */
+      box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.25);
+    }
+
+    td.alarm-cell-warning {
+      background: #fde68a !important; /* darker than row yellow */
+      box-shadow: inset 0 0 0 1px rgba(146, 64, 14, 0.20);
+    }
+
+    td.alarm-cell-critical strong,
+    td.alarm-cell-warning strong {
+      font-weight: 800;
     }
 
     /* ====== Alarm UI ====== */
@@ -518,24 +568,24 @@
     }
 
     tr.alarm-critical td {
-      background: #fee2e2 !important;
+      background: #fee2e2 ;
     }
 
     tr.alarm-warning td {
-      background: #fef9c3 !important;
+      background: #fef9c3 ;
     }
 
     tr.alarm-critical td:first-child,
     tr.alarm-warning td:first-child {
-      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
     }
 
     tr.alarm-critical td:first-child {
-      border-left-color: #dc2626 !important;
+      border-right-color: #dc2626 !important;
     }
 
     tr.alarm-warning td:first-child {
-      border-left-color: #f59e0b !important;
+      border-right-color: #f59e0b !important;
     }
 
     /* ===== ✅ Row highlight when clicking alarm ===== */
@@ -2002,6 +2052,13 @@
       row._dirty[col] = true;
     }
 
+    function paintSelectClass(sel) {
+      sel.classList.remove("value-mobassat", "value-3ady");
+      const v = (sel.value || "").trim();
+      if (v === "مبسط") sel.classList.add("value-mobassat");
+      if (v === "عادي") sel.classList.add("value-3ady");
+    }
+
     function makeSelectCell({ row, col, value, options, onChange }) {
       const sel = document.createElement("select");
       sel.className = "cell-select";
@@ -2012,7 +2069,12 @@
         sel.appendChild(o);
       });
       sel.value = options.includes(value) ? value : (value ? value : "");
+
+      // ✅ paint initial
+      paintSelectClass(sel);
+
       sel.addEventListener("change", () => {
+        paintSelectClass(sel);
         markDirty(row, col);
         onChange(sel.value);
         scheduleRecomputeAlarms(); // ✅ بدون rerender
@@ -2020,8 +2082,18 @@
       return sel;
     }
 
+    // ✅ apply darker cell highlight
+    function applyAlarmCellStyle(td, level) {
+      if (!td) return;
+      td.classList.remove("alarm-cell-critical", "alarm-cell-warning");
+      if (level === "critical") td.classList.add("alarm-cell-critical");
+      else if (level === "warning") td.classList.add("alarm-cell-warning");
+    }
+
     function renderRows(items) {
       tableBody.innerHTML = "";
+
+      const salesCol = findSalesColumnName();
 
       (items || []).forEach(row => {
         const tr = document.createElement("tr");
@@ -2029,6 +2101,14 @@
 
         if (row._alarmLevel === "fake" || row._alarmLevel === "critical") tr.classList.add("alarm-critical");
         else if (row._alarmLevel === "warning") tr.classList.add("alarm-warning");
+
+        // precompute levels for cell highlighting
+        const hasFake = hasFakeInvoices(row);
+        const rawDocs = (row[DOCS_COL] ?? "").toString().trim();
+        const docsLevel = rawDocs ? (row._docsLevel || getDocsLevel(rawDocs)) : "none"; // expired/soon/none
+        const salesLevel = getAlarmLevelForRow(row); // critical/warning/none
+        const sapInfo = getSapStatusInfo(row);       // .level
+        const retInfo = getReturnsStatusInfo(row);   // .level
 
         const tdIdx = document.createElement("td");
         tdIdx.textContent = (row._idx != null && row._idx !== "") ? String(row._idx) : "";
@@ -2057,6 +2137,35 @@
           const td = document.createElement("td");
           td.dataset.colName = col;
 
+          // ✅ darker cell highlight rules (spot the exact alarm column)
+          // Fake invoices => FAKE_COL critical
+          if (col === FAKE_COL && hasFake) applyAlarmCellStyle(td, "critical");
+
+          // Docs => DOCS_COL critical if expired, warning if soon
+          if (col === DOCS_COL && rawDocs) {
+            applyAlarmCellStyle(td, docsLevel === "expired" ? "critical" : "warning");
+          }
+
+          // Sales alarm => highlight sales column + type column
+          if (salesCol && col === salesCol && (salesLevel === "critical" || salesLevel === "warning")) {
+            applyAlarmCellStyle(td, salesLevel);
+          }
+          if (col === TYPE_COL && (salesLevel === "critical" || salesLevel === "warning")) {
+            // type is مبسط in alarm rows by definition
+            applyAlarmCellStyle(td, salesLevel);
+          }
+
+          // SAP => highlight SAP_COL
+          if (col === SAP_COL && (sapInfo.level === "critical" || sapInfo.level === "warning")) {
+            applyAlarmCellStyle(td, sapInfo.level);
+          }
+
+          // Returns => highlight RETURNS_COL
+          if (col === RETURNS_COL && (retInfo.level === "critical" || retInfo.level === "warning")) {
+            applyAlarmCellStyle(td, retInfo.level);
+          }
+
+          // content
           if (col === FAKE_COL && (row[col] ?? "").toString().trim()) {
             const btn = document.createElement("button");
             btn.type = "button";
