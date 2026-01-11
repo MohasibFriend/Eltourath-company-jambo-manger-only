@@ -300,9 +300,8 @@
     thead {
       position: sticky;
       top: 0;
-      z-index: 1;
+      z-index: 10; /* أعلى من جسم الجدول */
     }
-
     thead tr {
       background: #f3f4f6;
       box-shadow: 0 1px 0 #e5e7eb;
@@ -326,10 +325,12 @@
 
     tbody tr:nth-child(even) {
       background: #f9fafb;
+      border: solid #8b7b7b 2px;
     }
 
     tbody tr:nth-child(odd) {
       background: #ffffff;
+      border: solid #8b7b7b 2px;
     }
 
     td[contenteditable="true"] {
@@ -432,12 +433,12 @@
 
     /* ===== ✅ Darker alarm cell highlight inside colored rows ===== */
     td.alarm-cell-critical {
-      background: #fecaca !important; /* darker than row red */
+      background: #fecaca !important;
       box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.25);
     }
 
     td.alarm-cell-warning {
-      background: #fde68a !important; /* darker than row yellow */
+      background: #fde68a !important;
       box-shadow: inset 0 0 0 1px rgba(146, 64, 14, 0.20);
     }
 
@@ -568,11 +569,11 @@
     }
 
     tr.alarm-critical td {
-      background: #fee2e2 ;
+      background: #fee2e2;
     }
 
     tr.alarm-warning td {
-      background: #fef9c3 ;
+      background: #fef9c3;
     }
 
     tr.alarm-critical td:first-child,
@@ -707,7 +708,55 @@
       accent-color: #2563eb;
     }
 
+    /* ===== ✅ Freeze first 2 columns (Desktop only) ===== */
+    th.freeze-col-1,
+    td.freeze-col-1 {
+      position: sticky;
+      right: 0;
+      z-index: 3;
+      background: inherit;
+    }
+
+    th.freeze-col-2,
+    td.freeze-col-2 {
+      position: sticky;
+      right: var(--freeze-col-1-w, 220px);
+      z-index: 3;
+      background: inherit;
+    }
+
+thead th.freeze-col-1,
+thead th.freeze-col-2 {
+  z-index: 30;           /* أعلى من باقي الهيدر */
+  background: #f3f4f6;   /* نفس لون الهيدر عندك */
+}
+
+/* جسم العمودين المجمدين */
+td.freeze-col-1,
+td.freeze-col-2 {
+  z-index: 5;            /* أقل من هيدر العمودين */
+}
+
+    th.freeze-col-2,
+    td.freeze-col-2 {
+      box-shadow:
+        -1px 0 0 #e5e7eb,
+        -10px 0 18px rgba(15, 23, 42, 0.06);
+    }
+
     @media (max-width: 900px) {
+
+      /* ✅ Mobile: disable freeze (keep normal like now) */
+      th.freeze-col-1,
+      td.freeze-col-1,
+      th.freeze-col-2,
+      td.freeze-col-2 {
+        position: static !important;
+        right: auto !important;
+        z-index: auto !important;
+        box-shadow: none !important;
+      }
+
       body {
         padding: 16px 10px;
       }
@@ -1139,6 +1188,45 @@
     let rowIdCounter = 0;
 
     let alarms = [];
+
+    // ✅ Freeze first 2 columns (Desktop only) state
+    let FREEZE_COL_1 = null;
+    let FREEZE_COL_2 = null;
+
+    function computeFreezeCols() {
+      // Freezing the 2 key columns (best UX)
+      if (currentColumns.includes(COMPANY_COL) && currentColumns.includes(PK_NAME)) {
+        FREEZE_COL_1 = COMPANY_COL;
+        FREEZE_COL_2 = PK_NAME;
+        return;
+      }
+      // fallback: first 2 columns found
+      FREEZE_COL_1 = currentColumns[0] || null;
+      FREEZE_COL_2 = currentColumns[1] || null;
+    }
+
+    function updateFreezeOffsets() {
+      // mobile: keep normal (CSS also disables sticky)
+      if (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) {
+        table.style.setProperty("--freeze-col-1-w", "0px");
+        return;
+      }
+      const th1 = table.querySelector("thead th.freeze-col-1");
+      if (!th1) {
+        table.style.setProperty("--freeze-col-1-w", "0px");
+        return;
+      }
+      const w1 = Math.ceil(th1.getBoundingClientRect().width);
+      table.style.setProperty("--freeze-col-1-w", w1 + "px");
+    }
+
+    let _freezeResizeT = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(_freezeResizeT);
+      _freezeResizeT = setTimeout(() => {
+        updateFreezeOffsets();
+      }, 120);
+    });
 
     // ✅ bulk selection + pending deletions (defer backend delete until Save table)
     const selectedRowIds = new Set();         // row._rowId
@@ -1918,6 +2006,9 @@
 
       const ordered = PRIORITY_COLS.filter(c => colSet.has(c)).concat(remaining);
       currentColumns = ordered;
+
+      // ✅ set which 2 columns to freeze (desktop only)
+      computeFreezeCols();
     }
 
     function updateBulkDeleteButtonState() {
@@ -1983,6 +2074,11 @@
       currentColumns.forEach((col) => {
         const th = document.createElement("th");
         th.textContent = col;
+
+        // ✅ Freeze first 2 columns (desktop only) - tags
+        if (col === FREEZE_COL_1) th.classList.add("freeze-col-1");
+        if (col === FREEZE_COL_2) th.classList.add("freeze-col-2");
+
         tableHeaderRow.appendChild(th);
       });
 
@@ -1991,6 +2087,9 @@
         thActions.textContent = "Actions";
         tableHeaderRow.appendChild(thActions);
       }
+
+      // ✅ after header render, compute widths for sticky offsets
+      requestAnimationFrame(updateFreezeOffsets);
     }
 
     function showFakeDetails(raw) {
@@ -2153,6 +2252,10 @@
           const td = document.createElement("td");
           td.dataset.colName = col;
 
+          // ✅ Freeze first 2 columns (desktop only) - tags
+          if (col === FREEZE_COL_1) td.classList.add("freeze-col-1");
+          if (col === FREEZE_COL_2) td.classList.add("freeze-col-2");
+
           // ✅ darker cell highlight rules (spot the exact alarm column)
           // Fake invoices => FAKE_COL critical
           if (col === FAKE_COL && hasFake) applyAlarmCellStyle(td, "critical");
@@ -2167,7 +2270,6 @@
             applyAlarmCellStyle(td, salesLevel);
           }
           if (col === TYPE_COL && (salesLevel === "critical" || salesLevel === "warning")) {
-            // type is مبسط in alarm rows by definition
             applyAlarmCellStyle(td, salesLevel);
           }
 
@@ -2257,6 +2359,9 @@
 
       updateSelectAllState();
       updateBulkDeleteButtonState();
+
+      // ✅ update freeze offsets after rows render
+      requestAnimationFrame(updateFreezeOffsets);
     }
 
     function setData(items) {
